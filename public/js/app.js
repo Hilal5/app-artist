@@ -831,18 +831,31 @@ function generateStarsHTML(rating) {
 }
 
 // Generate review images HTML
+// Generate review images HTML - Support video
 function generateReviewImagesHTML(images) {
     if (!images || images.length === 0) return "";
 
     return `
         <div class="review-images">
-            ${images
-                .map(
-                    (img) => `
-                <img src="/storage/reviews/${img}" alt="Review image" onclick="viewImage('/storage/reviews/${img}')">
-            `
-                )
-                .join("")}
+            ${images.map(img => {
+                const filepath = `/storage/reviews/${img}`;
+                const isVideo = /\.(mp4|webm|mov)$/i.test(img);
+                
+                return isVideo ? `
+                    <div class="review-media-item" style="position:relative;display:inline-block;">
+                        <video 
+                            src="${filepath}" 
+                            style="width:150px;height:150px;object-fit:cover;border-radius:8px;cursor:pointer;"
+                            onclick="viewImage('${filepath}')">
+                        </video>
+                        <div style="position:absolute;top:5px;left:5px;background:rgba(0,0,0,0.8);color:white;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:bold;pointer-events:none;">
+                            VIDEO
+                        </div>
+                    </div>
+                ` : `
+                    <img src="${filepath}" alt="Review image" onclick="viewImage('${filepath}')">
+                `;
+            }).join("")}
         </div>
     `;
 }
@@ -871,21 +884,44 @@ function loadMoreReviews() {
 }
 
 // View image (lightbox)
-function viewImage(src) {
-    const lightbox = document.createElement("div");
-    lightbox.className = "image-lightbox";
-    lightbox.innerHTML = `
-        <div class="lightbox-content">
-            <button class="lightbox-close" onclick="this.parentElement.parentElement.remove()">
-                <svg viewBox="0 0 24 24" width="24" height="24">
-                    <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/>
-                    <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/>
-                </svg>
-            </button>
-            <img src="${src}" alt="Review image">
+// function viewImage(src) {
+//     const lightbox = document.createElement("div");
+//     lightbox.className = "image-lightbox";
+//     lightbox.innerHTML = `
+//         <div class="lightbox-content">
+//             <button class="lightbox-close" onclick="this.parentElement.parentElement.remove()">
+//                 <svg viewBox="0 0 24 24" width="24" height="24">
+//                     <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/>
+//                     <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/>
+//                 </svg>
+//             </button>
+//             <img src="${src}" alt="Review image">
+//         </div>
+//     `;
+//     document.body.appendChild(lightbox);
+// }
+
+// Update viewImage function untuk support video
+function viewImage(url) {
+    const isVideo = /\.(mp4|webm|mov)$/i.test(url);
+    const modal = document.createElement('div');
+    modal.className = 'image-modal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);z-index:10000;display:flex;align-items:center;justify-content:center;';
+    
+    modal.innerHTML = `
+        <div style="position:relative;max-width:90vw;max-height:90vh;">
+            ${isVideo ? `
+                <video src="${url}" controls autoplay style="max-width:90vw;max-height:90vh;border-radius:8px;">
+                    <source src="${url}" type="video/mp4">
+                </video>
+            ` : `
+                <img src="${url}" style="max-width:90vw;max-height:90vh;border-radius:8px;">
+            `}
         </div>
     `;
-    document.body.appendChild(lightbox);
+    
+    modal.onclick = (e) => { if(e.target === modal) modal.remove(); };
+    document.body.appendChild(modal);
 }
 
 // ================================================
@@ -2472,7 +2508,15 @@ function selectConversation(userId, userName) {
     loadChatMessages(userId, userName);
 }
 
-// Load Chat Messages
+// ================================================
+// SMART MESSAGE REFRESH - NO ANNOYING AUTO-SCROLL
+// ================================================
+
+let lastMessageId = null;
+let isUserScrolling = false;
+let scrollTimeout = null;
+
+// Load Chat Messages - UPDATED
 async function loadChatMessages(userId, userName) {
     currentChatUserId = userId;
     const chatMain = document.getElementById("chatMain");
@@ -2499,6 +2543,11 @@ async function loadChatMessages(userId, userName) {
 
         if (data.success) {
             renderChatInterface(userName, data.messages);
+            
+            // ✅ Store last message ID
+            if (data.messages.length > 0) {
+                lastMessageId = data.messages[data.messages.length - 1].id;
+            }
 
             // Update header title
             const chatHeaderTitle = document.getElementById("chatHeaderTitle");
@@ -2506,10 +2555,16 @@ async function loadChatMessages(userId, userName) {
                 chatHeaderTitle.textContent = `Chat with ${userName}`;
             }
 
-            // Auto refresh every 5 seconds
+            // ✅ SMART Auto refresh every 3 seconds (faster but smarter)
             chatRefreshInterval = setInterval(() => {
-                refreshMessages();
-            }, 5000);
+                smartRefreshMessages();
+            }, 3000);
+            
+            // ✅ Track user scrolling
+            const messagesContainer = document.getElementById("messagesContainer");
+            if (messagesContainer) {
+                messagesContainer.addEventListener('scroll', handleUserScroll);
+            }
         }
     } catch (error) {
         console.error("Error loading messages:", error);
@@ -2525,6 +2580,114 @@ async function loadChatMessages(userId, userName) {
             </div>
         `;
     }
+}
+
+// ✅ Handle user scroll - detect if user is reading old messages
+function handleUserScroll() {
+    isUserScrolling = true;
+    
+    // Reset flag after 2 seconds of no scrolling
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => {
+        isUserScrolling = false;
+    }, 2000);
+}
+
+// ✅ SMART Refresh - Only update if NEW messages exist
+async function smartRefreshMessages() {
+    if (!currentChatUserId) return;
+
+    try {
+        const response = await fetch(`/chat/messages?user_id=${currentChatUserId}`);
+        const data = await response.json();
+
+        if (data.success && data.messages.length > 0) {
+            const latestMessageId = data.messages[data.messages.length - 1].id;
+            
+            // ✅ ONLY update if there's NEW message
+            if (latestMessageId !== lastMessageId) {
+                console.log('📨 New message detected!');
+                
+                const messagesContainer = document.getElementById("messagesContainer");
+                if (messagesContainer) {
+                    // ✅ Check if user was at bottom OR actively scrolling
+                    const wasAtBottom = isScrolledToBottom();
+                    const shouldAutoScroll = wasAtBottom && !isUserScrolling;
+                    
+                    // Update messages
+                    messagesContainer.innerHTML = renderMessages(data.messages);
+                    
+                    // Initialize toggle
+                    initCommissionDescriptionToggle();
+                    
+                    // ✅ ONLY auto-scroll if user was at bottom
+                    if (shouldAutoScroll) {
+                        scrollToBottom();
+                    } else {
+                        // ✅ Show "New message" indicator instead
+                        showNewMessageIndicator();
+                    }
+                    
+                    // Update last message ID
+                    lastMessageId = latestMessageId;
+                    
+                    // ✅ Play notification sound (optional)
+                    playNotificationSound();
+                }
+            }
+        }
+    } catch (error) {
+        console.error("Error refreshing messages:", error);
+    }
+}
+
+// ✅ Show "New Message" indicator when user is reading old messages
+function showNewMessageIndicator() {
+    const chatMain = document.getElementById("chatMain");
+    if (!chatMain) return;
+    
+    // Remove existing indicator
+    const existing = document.getElementById("newMessageIndicator");
+    if (existing) existing.remove();
+    
+    // Create indicator
+    const indicator = document.createElement('div');
+    indicator.id = 'newMessageIndicator';
+    indicator.className = 'new-message-indicator';
+    indicator.innerHTML = `
+        <span>📨 New message</span>
+        <button onclick="scrollToBottomAndHideIndicator()">
+            <svg viewBox="0 0 24 24" width="16" height="16">
+                <polyline points="7 13 12 18 17 13" stroke="currentColor" stroke-width="2" fill="none"/>
+                <polyline points="7 7 12 12 17 7" stroke="currentColor" stroke-width="2" fill="none"/>
+            </svg>
+        </button>
+    `;
+    
+    const messagesContainer = document.getElementById("messagesContainer");
+    if (messagesContainer) {
+        messagesContainer.parentElement.appendChild(indicator);
+    }
+}
+
+// ✅ Scroll to bottom and hide indicator
+function scrollToBottomAndHideIndicator() {
+    scrollToBottom();
+    const indicator = document.getElementById("newMessageIndicator");
+    if (indicator) indicator.remove();
+}
+
+// ✅ Check if scrolled to bottom (with bigger threshold)
+function isScrolledToBottom() {
+    const messagesContainer = document.getElementById("messagesContainer");
+    if (!messagesContainer) return false;
+
+    const threshold = 150; // 150px dari bottom
+    return (
+        messagesContainer.scrollHeight -
+        messagesContainer.scrollTop -
+        messagesContainer.clientHeight < threshold
+    );
 }
 
 // Render Chat Interface
@@ -2623,6 +2786,7 @@ function renderChatInterface(userName, messages) {
 // ✅ UPDATE: Render Messages dengan commission card yang lebih jelas
 // ✅ UPDATE: Render Messages dengan video support
 // ✅ UPDATE: Render Messages dengan video autoplay + loop
+// ✅ UPDATE: Render Messages dengan download + preview support
 function renderMessages(messages) {
     return messages.map(msg => {
         const messageClass = msg.is_own ? 'own' : '';
@@ -2631,12 +2795,8 @@ function renderMessages(messages) {
         // Commission card
         let commissionCard = '';
         if (msg.commission) {
-            // ini tambahin
             const desc = msg.commission.description || "";
             const descId = `commDesc-${msg.id}`;
-            const btnId = `commDescBtn-${msg.id}`;
-
-            // Check if description is long (more than 150 chars)
             const isLongDesc = desc.length > 150;
 
             commissionCard = `
@@ -2648,49 +2808,85 @@ function renderMessages(messages) {
                     </div>
                     <div class="commission-card-info">
                         <h5>📦 ${escapeHtml(msg.commission.name)}</h5>
-                        
-                        <p style="margin-top: 8px;"><strong>💰 IDR ${formatPrice(
-                            msg.commission.price
-                        )}</strong></p>
-                        <p style="font-size: 12px; opacity: 0.7; margin-top: 5px;">⏱️ ${
-                            msg.commission.delivery_time
-                        } Days</p>
-                    </div>>
+                        <p style="margin-top: 8px;"><strong>💰 IDR ${formatPrice(msg.commission.price)}</strong></p>
+                        <p style="font-size: 12px; opacity: 0.7; margin-top: 5px;">⏱️ ${msg.commission.delivery_time} Days</p>
+                    </div>
                 </div>
             `;
         }
 
-        // ✅ Attachment dengan video autoplay + loop + muted
+        // ✅ NEW: Attachment dengan preview + download support
         let attachmentHtml = '';
         if (msg.attachment) {
-            const isVideo = msg.attachment.match(/\.(mp4|webm)$/i);
+            const filePath = `/storage/chat_attachments/${msg.attachment}`;
+            const fileType = detectFileType(msg.attachment);
             
-            attachmentHtml = isVideo ? `
-                <div class="message-attachment">
-                    <video 
-                        src="/storage/chat_attachments/${msg.attachment}" 
-                        autoplay 
-                        loop 
-                        muted 
-                        playsinline
-                        preload="auto"
-                        onclick="this.muted = !this.muted; this.controls = !this.controls;"
-                        style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;"
-                        loading="lazy">
-                        Your browser does not support video.
-                    </video>
-
-                </div>
-            ` : `
-                <div class="message-attachment">
-                    <img 
-                        src="/storage/chat_attachments/${msg.attachment}" 
-                        alt="Attachment" 
-                        onclick="viewImage('/storage/chat_attachments/${msg.attachment}')"
-                        loading="lazy"
-                        style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;">
-                </div>
-            `;
+            if (fileType === 'image') {
+                attachmentHtml = `
+                    <div class="message-attachment">
+                        <img 
+                            src="${filePath}" 
+                            alt="Attachment" 
+                            onclick="viewAttachment('${filePath}', 'image')"
+                            loading="lazy"
+                            style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;">
+                        <button class="download-attachment-btn" onclick="downloadAttachment('${filePath}', '${msg.attachment}')">
+                            <svg viewBox="0 0 24 24" width="16" height="16">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" fill="none"/>
+                            </svg>
+                            Download
+                        </button>
+                    </div>
+                `;
+            } else if (fileType === 'video') {
+                attachmentHtml = `
+                    <div class="message-attachment">
+                        <div class="video-wrapper" onclick="viewAttachment('${filePath}', 'video')">
+                            <video 
+                                src="${filePath}" 
+                                muted 
+                                playsinline
+                                preload="metadata"
+                                style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;">
+                            </video>
+                            <div class="video-play-overlay">
+                                <svg viewBox="0 0 24 24" width="50" height="50">
+                                    <circle cx="12" cy="12" r="10" fill="rgba(0,0,0,0.6)"/>
+                                    <polygon points="10 8 16 12 10 16 10 8" fill="white"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <button class="download-attachment-btn" onclick="downloadAttachment('${filePath}', '${msg.attachment}')">
+                            <svg viewBox="0 0 24 24" width="16" height="16">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" fill="none"/>
+                            </svg>
+                            Download
+                        </button>
+                    </div>
+                `;
+            } else if (fileType === 'psd') {
+                attachmentHtml = `
+                    <div class="message-attachment file-attachment">
+                        <div class="file-info">
+                            <svg viewBox="0 0 24 24" width="40" height="40">
+                                <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z" fill="#31C5F0"/>
+                                <path d="M14 2v6h6" fill="#001E36" opacity="0.3"/>
+                                <text x="12" y="16" text-anchor="middle" fill="white" font-size="6" font-weight="bold">PSD</text>
+                            </svg>
+                            <div>
+                                <strong>${msg.attachment}</strong>
+                                <small>Photoshop Document</small>
+                            </div>
+                        </div>
+                        <button class="download-attachment-btn" onclick="downloadAttachment('${filePath}', '${msg.attachment}')">
+                            <svg viewBox="0 0 24 24" width="16" height="16">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" fill="none"/>
+                            </svg>
+                            Download
+                        </button>
+                    </div>
+                `;
+            }
         }
 
         return `
@@ -2717,6 +2913,107 @@ function renderMessages(messages) {
         `;
     }).join('');
 }
+
+// Detect file type from filename
+function detectFileType(filename) {
+    if (filename.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+        return 'image';
+    } else if (filename.match(/\.(mp4|webm|mov)$/i)) {
+        return 'video';
+    } else if (filename.match(/\.psd$/i)) {
+        return 'psd';
+    }
+    return 'unknown';
+}
+
+// ✅ NEW: View attachment in modal
+function viewAttachment(src, type) {
+    const modal = document.createElement('div');
+    modal.className = 'attachment-modal';
+    modal.id = 'attachmentModal';
+    
+    let content = '';
+    
+    if (type === 'image') {
+        content = `
+            <img src="${src}" alt="Full view" style="max-width: 90vw; max-height: 90vh; object-fit: contain;">
+        `;
+    } else if (type === 'video') {
+        content = `
+            <video 
+                src="${src}" 
+                controls 
+                autoplay 
+                style="max-width: 90vw; max-height: 90vh;">
+                Your browser does not support video playback.
+            </video>
+        `;
+    }
+    
+    modal.innerHTML = `
+        <div class="attachment-modal-content">
+            ${content}
+            <button class="attachment-modal-close" onclick="closeAttachmentModal()">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/>
+                    <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/>
+                </svg>
+            </button>
+            <a href="${src}" download class="attachment-modal-download">
+                <svg viewBox="0 0 24 24" width="20" height="20">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" fill="none"/>
+                </svg>
+                Download
+            </a>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Close on background click
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeAttachmentModal();
+        }
+    });
+    
+    // Close on ESC key
+    document.addEventListener('keydown', handleEscKey);
+}
+
+// Close attachment modal
+function closeAttachmentModal() {
+    const modal = document.getElementById('attachmentModal');
+    if (modal) {
+        modal.remove();
+    }
+    document.removeEventListener('keydown', handleEscKey);
+}
+
+// Handle ESC key
+function handleEscKey(e) {
+    if (e.key === 'Escape') {
+        closeAttachmentModal();
+    }
+}
+
+// ✅ NEW: Download attachment
+function downloadAttachment(url, filename) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || 'download';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+// Make functions global
+window.viewAttachment = viewAttachment;
+window.closeAttachmentModal = closeAttachmentModal;
+window.downloadAttachment = downloadAttachment;
+window.formatFileSize = formatFileSize;
+window.getFileType = getFileType;
+window.detectFileType = detectFileType;
 
 // ✅ Handle show more/less untuk commission description di chat
 function initCommissionDescriptionToggle() {
@@ -2898,7 +3195,7 @@ async function refreshMessages() {
     }
 }
 
-// Send Message
+// ✅ UPDATE: Send Message - auto scroll after send
 async function sendMessage(event) {
     event.preventDefault();
 
@@ -2921,7 +3218,6 @@ async function sendMessage(event) {
     if (message) formData.append("message", message);
     if (attachment) formData.append("attachment", attachment);
 
-    // Disable send button
     if (sendBtn) sendBtn.disabled = true;
 
     try {
@@ -2936,18 +3232,20 @@ async function sendMessage(event) {
         const data = await response.json();
 
         if (data.success) {
-            // Clear inputs
             messageInput.value = "";
             messageInput.style.height = "auto";
             if (attachmentInput) attachmentInput.value = "";
 
-            // Hide attachment preview
             const preview = document.getElementById("attachmentPreview");
             if (preview) preview.style.display = "none";
 
-            // Refresh messages
-            await refreshMessages();
-            scrollToBottom();
+            // ✅ Instant refresh after send
+            await smartRefreshMessages();
+            
+            // ✅ ALWAYS scroll to bottom after sending
+            setTimeout(() => {
+                scrollToBottom();
+            }, 100);
         } else {
             alert(data.message || "Failed to send message");
         }
@@ -2958,6 +3256,7 @@ async function sendMessage(event) {
         if (sendBtn) sendBtn.disabled = false;
     }
 }
+
 
 // Handle Chat Input Keydown (Send with Enter)
 function handleChatInputKeydown(event) {
@@ -2970,14 +3269,32 @@ function handleChatInputKeydown(event) {
     }
 }
 
-// Handle Attachment Select
+// ================================================
+// CHAT ATTACHMENT HANDLING - UPDATED
+// ================================================
+
+// Handle Attachment Select with proper preview
 function handleAttachmentSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-        alert("File size must be less than 5MB");
+    // ✅ Validate file size (50MB max)
+    const maxSize = 50 * 1024 * 1024;
+    if (file.size > maxSize) {
+        alert("File size must be less than 50MB");
+        event.target.value = "";
+        return;
+    }
+
+    // ✅ Validate file type
+    const allowedTypes = [
+        'image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp',
+        'video/mp4', 'video/webm', 'video/quicktime',
+        'image/vnd.adobe.photoshop', 'application/x-photoshop'
+    ];
+    
+    if (!allowedTypes.includes(file.type) && !file.name.endsWith('.psd')) {
+        alert("Only images, videos, and PSD files are allowed");
         event.target.value = "";
         return;
     }
@@ -2986,11 +3303,53 @@ function handleAttachmentSelect(event) {
     const preview = document.getElementById("attachmentPreview");
     if (!preview) return;
 
+    const fileType = getFileType(file);
+    
+    console.log('📎 Attachment selected:', {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        detectedType: fileType
+    });
+
     const reader = new FileReader();
     reader.onload = function (e) {
-        preview.innerHTML = `
-            <div class="preview-image-wrapper">
+        let previewContent = '';
+        
+        if (fileType === 'image') {
+            previewContent = `
                 <img src="${e.target.result}" alt="Preview" class="preview-image">
+            `;
+        } else if (fileType === 'video') {
+            // ✅ FIX: Video preview with poster
+            previewContent = `
+                <video class="preview-video" muted playsinline preload="metadata">
+                    <source src="${e.target.result}" type="${file.type}">
+                </video>
+                <div class="video-preview-badge">
+                    <svg viewBox="0 0 24 24" width="40" height="40">
+                        <circle cx="12" cy="12" r="10" fill="rgba(0,0,0,0.6)"/>
+                        <polygon points="10 8 16 12 10 16 10 8" fill="white"/>
+                    </svg>
+                </div>
+            `;
+        } else if (fileType === 'psd') {
+            previewContent = `
+                <div class="file-preview">
+                    <svg viewBox="0 0 24 24" width="60" height="60">
+                        <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z" fill="#31C5F0"/>
+                        <path d="M14 2v6h6" fill="#001E36" opacity="0.3"/>
+                        <text x="12" y="16" text-anchor="middle" fill="white" font-size="6" font-weight="bold">PSD</text>
+                    </svg>
+                    <p>${file.name}</p>
+                    <small>${formatFileSize(file.size)}</small>
+                </div>
+            `;
+        }
+        
+        preview.innerHTML = `
+            <div class="preview-attachment-wrapper">
+                ${previewContent}
                 <button type="button" class="remove-preview" onclick="removeAttachmentPreview()">
                     <svg viewBox="0 0 24 24" width="14" height="14">
                         <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/>
@@ -3003,6 +3362,28 @@ function handleAttachmentSelect(event) {
     };
     reader.readAsDataURL(file);
 }
+
+// Get file type
+function getFileType(file) {
+    if (file.type.startsWith('image/') || file.name.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+        return 'image';
+    } else if (file.type.startsWith('video/') || file.name.match(/\.(mp4|webm|mov)$/i)) {
+        return 'video';
+    } else if (file.type.includes('photoshop') || file.name.endsWith('.psd')) {
+        return 'psd';
+    }
+    return 'unknown';
+}
+
+// Format file size
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
 
 // Remove Attachment Preview
 function removeAttachmentPreview() {
@@ -3533,28 +3914,7 @@ async function checkUserReviewStatus() {
 }
 
 // ✅ Update Review CTA based on status
-function updateReviewCTA() {
-    const cta = document.getElementById('giveReviewCTA');
-    if (!cta) return;
-    
-    if (userHasReviewed) {
-        cta.innerHTML = `
-            <div class="cta-content">
-                <div class="cta-icon" style="background: linear-gradient(135deg, #4CAF50, #45a049);">
-                    <svg viewBox="0 0 24 24" width="32" height="32">
-                        <polyline points="20 6 9 17 4 12" stroke="white" stroke-width="3" fill="none"/>
-                    </svg>
-                </div>
-                <div>
-                    <h3>Thank You! ✨</h3>
-                    <p>Your review has been submitted</p>
-                </div>
-            </div>
-        `;
-        cta.style.border = '2px solid rgba(76, 175, 80, 0.3)';
-        cta.style.background = 'linear-gradient(135deg, rgba(76, 175, 80, 0.1), rgba(69, 160, 73, 0.1))';
-    }
-}
+
 
 // ✅ UPDATE: openReviewForm - Check before opening
 function openReviewForm() {
@@ -3565,12 +3925,6 @@ function openReviewForm() {
     if (!isLoggedIn) {
         alert('Please login first to leave a review');
         openAuthModal('login');
-        return;
-    }
-
-    // Check if already reviewed
-    if (userHasReviewed) {
-        alert('You have already submitted a review. Thank you!');
         return;
     }
 
@@ -3644,23 +3998,43 @@ async function loadPendingReviews() {
                                 <span class="review-date">${new Date(review.created_at).toLocaleDateString()}</span>
                             </div>
                         </div>
-                        <div class="review-rating">
-                            ${generateStarsHTML(review.rating)}
-                            <span>${review.rating}/5</span>
-                        </div>
+<div class="review-rating" style="display:flex;align-items:center;gap:8px;">
+    <div style="display:flex;gap:2px;">
+        ${Array.from({length: 5}, (_, i) => 
+            `<span style="color:${i < review.rating ? '#FFD700' : '#444'};font-size:20px;">★</span>`
+        ).join('')}
+    </div>
+    <span style="color:#FFD700;font-size:16px;font-weight:600;">${review.rating}/5</span>
+</div>
                     </div>
                     
                     <div class="admin-review-content">
                         ${review.commission_type ? `<span class="commission-type-badge">${escapeHtml(review.commission_type)}</span>` : ''}
                         <p>${escapeHtml(review.comment)}</p>
                         
-                        ${review.images && review.images.length > 0 ? `
-                            <div class="review-images">
-                                ${review.images.map(img => `
-                                    <img src="/storage/reviews/${img}" alt="Review image" onclick="viewImage('/storage/reviews/${img}')">
-                                `).join('')}
-                            </div>
-                        ` : ''}
+${review.images && review.images.length > 0 ? `
+    <div class="review-images">
+        ${review.images.map(img => {
+            const filepath = `/storage/reviews/${img}`;
+            const isVideo = /\.(mp4|webm|mov)$/i.test(img);
+            
+            return isVideo ? `
+                <div class="review-media-item" style="position:relative;display:inline-block;margin:5px;">
+                    <video 
+                        src="${filepath}" 
+                        style="width:150px;height:150px;object-fit:cover;border-radius:8px;cursor:pointer;"
+                        onclick="viewImage('${filepath}')">
+                    </video>
+                    <div style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.8);color:white;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:bold;pointer-events:none;">
+                        VIDEO
+                    </div>
+                </div>
+            ` : `
+                <img src="${filepath}" alt="Review image" onclick="viewImage('${filepath}')">
+            `;
+        }).join('')}
+    </div>
+` : ''}
                     </div>
                     
                     <div class="admin-review-actions">
@@ -3702,6 +4076,29 @@ async function loadPendingReviews() {
         `;
     }
 }
+
+// Update viewImage function untuk support video
+// function viewImage(url) {
+//     const isVideo = /\.(mp4|webm|mov)$/i.test(url);
+//     const modal = document.createElement('div');
+//     modal.className = 'image-modal';
+//     modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);z-index:10000;display:flex;align-items:center;justify-content:center;';
+    
+//     modal.innerHTML = `
+//         <div style="position:relative;max-width:90vw;max-height:90vh;">
+//             ${isVideo ? `
+//                 <video src="${url}" controls autoplay style="max-width:90vw;max-height:90vh;border-radius:8px;">
+//                     <source src="${url}" type="video/mp4">
+//                 </video>
+//             ` : `
+//                 <img src="${url}" style="max-width:90vw;max-height:90vh;border-radius:8px;">
+//             `}
+//         </div>
+//     `;
+    
+//     modal.onclick = (e) => { if(e.target === modal) modal.remove(); };
+//     document.body.appendChild(modal);
+// }
 
 // Approve review
 async function approveReview(reviewId) {
@@ -3822,18 +4219,24 @@ window.deleteReview = deleteReview;
 
 // ✅ UPDATE: Image upload handler with 10MB limit
 // ✅ CORRECT VERSION - Use 'imagePreview' as container
+// ✅ CRITICAL: Only initialize ONCE
 function initImageUpload() {
     const input = document.getElementById('reviewImages');
-    const preview = document.getElementById('imagePreview'); // ✅ Match Blade
+    const preview = document.getElementById('imagePreview');
 
     if (!input || !preview) {
         console.log('❌ Image upload elements not found');
         return;
     }
 
+    // ✅ CRITICAL: Remove old event listeners first (prevent duplicate)
+    const newInput = input.cloneNode(true);
+    input.parentNode.replaceChild(newInput, input);
+    
     console.log('✅ Image upload initialized');
 
-    input.addEventListener('change', function(e) {
+    // ✅ Add event listener to NEW element
+    newInput.addEventListener('change', function(e) {
         const files = Array.from(e.target.files);
 
         console.log('📦 Files selected:', files.length);
@@ -3841,7 +4244,7 @@ function initImageUpload() {
         // ✅ Validate: Max 3 images
         if (files.length > 3) {
             alert('Maximum 3 images allowed');
-            input.value = '';
+            newInput.value = '';
             return;
         }
 
@@ -3850,16 +4253,19 @@ function initImageUpload() {
         for (let file of files) {
             if (file.size > maxSize) {
                 alert(`${file.name} is too large. Maximum size is 10MB per image.`);
-                input.value = '';
+                newInput.value = '';
                 preview.innerHTML = '';
                 selectedImages = [];
                 return;
             }
 
-            // ✅ Validate: Only images
-            if (!file.type.startsWith('image/')) {
-                alert(`${file.name} is not an image file`);
-                input.value = '';
+            // ✅ Validate: Only images (tambah video jika perlu)
+            const isImage = file.type.startsWith('image/');
+            const isVideo = file.type.startsWith('video/');
+            
+            if (!isImage && !isVideo) {
+                alert(`${file.name} is not an image or video file`);
+                newInput.value = '';
                 preview.innerHTML = '';
                 selectedImages = [];
                 return;
@@ -3868,18 +4274,98 @@ function initImageUpload() {
 
         // ✅ Store selected files
         selectedImages = files;
-        console.log('✅ Stored images:', selectedImages.length);
+        console.log('✅ Stored files:', selectedImages.length);
+        console.log('✅ File details:', selectedImages.map(f => f.name));
 
-        // ✅ Preview images
+        // ✅ Preview files
         preview.innerHTML = '';
-        files.forEach((file, index) => {
+        
+        // ✅ CRITICAL: Use Promise.all to ensure correct order
+        const previewPromises = files.map((file, index) => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                const isVideo = file.type.startsWith('video/');
+                
+                reader.onload = function(e) {
+                    const div = document.createElement('div');
+                    div.className = 'image-preview-item';
+                    div.innerHTML = `
+                        ${isVideo ? `
+                            <video src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover;">
+                                Your browser does not support video preview.
+                            </video>
+                            <div class="video-badge" style="position: absolute; top: 5px; left: 5px; background: rgba(0,0,0,0.8); color: white; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; z-index: 2;">
+                                VIDEO
+                            </div>
+                        ` : `
+                            <img src="${e.target.result}" alt="Preview ${index + 1}" style="width: 100%; height: 100%; object-fit: cover;">
+                        `}
+                        <button type="button" class="image-preview-remove" onclick="removeImage(${index})">
+                            <svg viewBox="0 0 24 24" width="14" height="14">
+                                <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/>
+                                <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        </button>
+                    `;
+                    preview.appendChild(div);
+                    resolve();
+                };
+                reader.readAsDataURL(file);
+            });
+        });
+
+        Promise.all(previewPromises).then(() => {
+            console.log('✅ All previews rendered');
+        });
+    });
+}
+
+
+
+// Remove image from preview
+function removeImage(index) {
+    console.log("🗑️ Removing file at index:", index);
+
+    selectedImages.splice(index, 1);
+
+    const input = document.getElementById("reviewImages");
+    const preview = document.getElementById("imagePreview");
+
+    if (selectedImages.length === 0) {
+        if (input) input.value = "";
+        if (preview) preview.innerHTML = "";
+        console.log("✅ All files removed");
+        return;
+    }
+
+    // Re-render preview
+    if (preview) {
+        preview.innerHTML = "";
+        selectedImages.forEach((file, i) => {
             const reader = new FileReader();
-            reader.onload = function(e) {
-                const div = document.createElement('div');
-                div.className = 'image-preview-item';
+            const isVideo = file.type.startsWith("video/");
+
+            reader.onload = function (e) {
+                const div = document.createElement("div");
+                div.className = "image-preview-item";
                 div.innerHTML = `
-                    <img src="${e.target.result}" alt="Preview ${index + 1}">
-                    <button type="button" class="image-preview-remove" onclick="removeImage(${index})">
+                    ${
+                        isVideo
+                            ? `
+                        <video src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover;">
+                            Your browser does not support video preview.
+                        </video>
+                        <div class="video-badge" style="position: absolute; top: 5px; left: 5px; background: rgba(0,0,0,0.8); color: white; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; z-index: 2;">
+                            VIDEO
+                        </div>
+                    `
+                            : `
+                        <img src="${e.target.result}" alt="Preview ${
+                                  i + 1
+                              }" style="width: 100%; height: 100%; object-fit: cover;">
+                    `
+                    }
+                    <button type="button" class="image-preview-remove" onclick="removeImage(${i})">
                         <svg viewBox="0 0 24 24" width="14" height="14">
                             <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/>
                             <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/>
@@ -3890,45 +4376,18 @@ function initImageUpload() {
             };
             reader.readAsDataURL(file);
         });
-    });
-}
-
-// Remove image from preview
-function removeImage(index) {
-    selectedImages.splice(index, 1);
-    
-    const input = document.getElementById('reviewImages');
-    const preview = document.getElementById('imagePreview');
-    
-    if (selectedImages.length === 0) {
-        input.value = '';
-        preview.innerHTML = '';
-        return;
     }
 
-    // Re-render preview
-    preview.innerHTML = '';
-    selectedImages.forEach((file, i) => {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const div = document.createElement('div');
-            div.className = 'image-preview-item';
-            div.innerHTML = `
-                <img src="${e.target.result}" alt="Preview ${i + 1}">
-                <button type="button" class="image-preview-remove" onclick="removeImage(${i})">
-                    <svg viewBox="0 0 24 24" width="14" height="14">
-                        <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/>
-                        <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/>
-                    </svg>
-                </button>
-            `;
-            preview.appendChild(div);
-        };
-        reader.readAsDataURL(file);
-    });
+    console.log("✅ Preview updated, remaining files:", selectedImages.length);
 }
 
 // Make removeImage global
 window.removeImage = removeImage;
 
+// ✅ CRITICAL: Initialize only ONCE when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initImageUpload);
+} else {
+    initImageUpload();
+}
 
