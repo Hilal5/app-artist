@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Review extends Model
 {
+    protected $appends = ['time_ago'];
     use HasFactory;
 
     protected $fillable = [
@@ -61,4 +62,5 @@ class Review extends Model
     {
         return $this->created_at->diffForHumans();
     }
+    
 }
