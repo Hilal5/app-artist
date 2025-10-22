@@ -85,10 +85,10 @@ body.light-mode .deco-circle {
     border-color: rgba(255, 140, 0, 0.3);
 }
 
-body.light-mode .star {
+/* body.light-mode .star {
     background: rgba(255, 255, 255, 0.9);
     box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
-}
+} */
 
 body.light-mode .hero-star {
     filter: drop-shadow(0 0 30px rgba(255, 165, 0, 0.8));
@@ -5373,7 +5373,11 @@ video::before {
     opacity: 0.9;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;  /* ✅ ALLOW MULTI-LINE */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;  /* ✅ MAX 2 LINES */
+    -webkit-box-orient: vertical;
+    line-height: 1.4;
 }
 
 .toast-close {
@@ -6109,3 +6113,460 @@ video::before {
         max-height: 70px;
     }
 }
+
+/* ================================================
+   CHAT ATTACHMENT PREVIEW
+   ================================================ */
+.attachment-preview {
+    margin: 10px 0;
+    position: relative;
+}
+
+.preview-attachment-wrapper {
+    position: relative;
+    display: inline-block;
+    max-width: 300px;
+}
+
+.preview-image,
+.preview-video {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 8px;
+    display: block;
+}
+
+.video-preview-badge {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.file-preview {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    min-width: 200px;
+}
+
+.file-preview svg {
+    margin-bottom: 10px;
+}
+
+.file-preview p {
+    margin: 10px 0 5px;
+    font-weight: 500;
+    color: white;
+}
+
+.file-preview small {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.remove-preview {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #f44336;
+    border: 2px solid #1a1a2e;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 10;
+}
+
+.remove-preview:hover {
+    background: #d32f2f;
+    transform: scale(1.1);
+}
+
+/* ================================================
+   MESSAGE ATTACHMENTS
+   ================================================ */
+.message-attachment {
+    position: relative;
+    margin-top: 8px;
+}
+
+.video-wrapper {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+}
+
+.video-play-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.video-wrapper:hover .video-play-overlay {
+    opacity: 1;
+}
+
+.download-attachment-btn {
+    margin-top: 8px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.download-attachment-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.file-attachment {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 15px;
+    border-radius: 8px;
+    max-width: 350px;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.file-info div {
+    flex: 1;
+}
+
+.file-info strong {
+    display: block;
+    color: white;
+    margin-bottom: 4px;
+    word-break: break-all;
+}
+
+.file-info small {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 12px;
+}
+
+/* ================================================
+   ATTACHMENT MODAL
+   ================================================ */
+.attachment-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s;
+}
+
+.attachment-modal-content {
+    position: relative;
+    max-width: 95vw;
+    max-height: 95vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.attachment-modal-close {
+    position: absolute;
+    top: 0px;
+    right: 0;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.attachment-modal-close:hover {
+    background: red;
+    color: white;
+    transform: rotate(90deg);
+}
+
+.attachment-modal-download {
+    margin-top: 20px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border: none;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.attachment-modal-download:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.5);
+}
+
+/* ================================================
+   RESPONSIVE
+   ================================================ */
+@media (max-width: 768px) {
+    .attachment-modal-content {
+        max-width: 100vw;
+        max-height: 100vh;
+    }
+    
+    .attachment-modal-close {
+        top: -40px;
+        right: 0;
+    }
+    
+    .attachment-modal-download {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+}
+
+/* ================================================
+   NEW MESSAGE INDICATOR
+   ================================================ */
+.new-message-indicator {
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 25px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+    z-index: 100;
+    animation: slideUp 0.3s ease-out;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.new-message-indicator:hover {
+    transform: translateX(-50%) translateY(-2px);
+    box-shadow: 0 6px 25px rgba(102, 126, 234, 0.5);
+}
+
+.new-message-indicator button {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.new-message-indicator button:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(2px);
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .new-message-indicator {
+        bottom: 70px;
+        font-size: 13px;
+        padding: 8px 16px;
+    }
+}
+
+/* ================================================
+   ✅ REVIEW IMAGE/VIDEO PREVIEW STYLING
+   ================================================ */
+
+.image-preview-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    min-height: 50px;
+}
+
+.image-preview-item {
+    position: relative;
+    width: 100%;
+    padding-bottom: 100%; /* Square aspect ratio */
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+.image-preview-item:hover {
+    border-color: rgba(255, 153, 0, 0.5);
+    transform: scale(1.05);
+    box-shadow: 0 5px 20px rgba(255, 153, 0, 0.3);
+}
+
+.image-preview-item img,
+.image-preview-item video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.video-badge {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.video-badge svg {
+    width: 12px;
+    height: 12px;
+}
+
+.image-preview-remove {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #f44336;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 10;
+    opacity: 0;
+}
+
+.image-preview-item:hover .image-preview-remove {
+    opacity: 1;
+}
+
+.image-preview-remove:hover {
+    background: #d32f2f;
+    transform: scale(1.15) rotate(90deg);
+    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.5);
+}
+
+.image-preview-remove svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Empty state */
+.image-preview-container:empty::before {
+    content: 'No files selected';
+    display: block;
+    text-align: center;
+    padding: 30px;
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 14px;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .image-preview-container {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 10px;
+    }
+    
+    .image-preview-remove {
+        width: 24px;
+        height: 24px;
+        opacity: 1; /* Always visible on mobile */
+    }
+}
+
+/* Light mode adjustments */
+body.light-mode .image-preview-container {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+body.light-mode .image-preview-item {
+    background: rgba(255, 255, 255, 0.5);
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+body.light-mode .image-preview-item:hover {
+    border-color: rgba(255, 140, 0, 0.5);
+}
+
+body.light-mode .video-badge {
+    background: rgba(255, 140, 0, 0.9);
+    color: white;
+}
+
+body.light-mode .image-preview-container:empty::before {
+    color: rgba(0, 0, 0, 0.3);
+}
+
