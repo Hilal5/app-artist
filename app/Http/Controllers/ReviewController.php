@@ -72,80 +72,85 @@ class ReviewController extends Controller
         ], 401);
     }
 
-    // Check if user already reviewed
-    $existingReview = Review::where('user_id', Auth::id())
-                            ->where('is_approved', true)
-                            ->first();
-    
-    if ($existingReview) {
-        return response()->json([
-            'success' => false,
-            'message' => 'You have already submitted a review. Thank you!'
-        ], 403);
-    }
-
-    // ✅ DEBUG: Log request data
-    \Log::info('Review submission started', [
-        'user_id' => Auth::id(),
-        'has_files' => $request->hasFile('images'),
-        'files_count' => $request->hasFile('images') ? count($request->file('images')) : 0,
+    // ✅ DEBUG: Check apa yang diterima
+    \Log::info('Raw request files:', [
+        'has_images' => $request->hasFile('images'),
+        'images_count' => $request->hasFile('images') ? count($request->file('images')) : 0,
     ]);
 
-    // Validate
-    $validator = Validator::make($request->all(), [
+    // ✅ CRITICAL FIX: Deduplicate files SEBELUM validation
+    $uploadedFiles = [];
+    if ($request->hasFile('images')) {
+        $rawFiles = $request->file('images');
+        if (!is_array($rawFiles)) {
+            $rawFiles = [$rawFiles];
+        }
+
+        // ✅ Remove duplicates by file hash
+        $seenHashes = [];
+        foreach ($rawFiles as $file) {
+            $hash = md5($file->getClientOriginalName() . $file->getSize());
+            if (!in_array($hash, $seenHashes)) {
+                $uploadedFiles[] = $file;
+                $seenHashes[] = $hash;
+            }
+        }
+
+        // ✅ Replace request files dengan yang sudah di-deduplicate
+        $request->merge(['images' => $uploadedFiles]);
+    }
+
+    \Log::info('After deduplication:', [
+        'count' => count($uploadedFiles)
+    ]);
+
+    // ✅ NOW validate dengan file yang sudah bersih
+    $validator = Validator::make([
+        'rating' => $request->rating,
+        'comment' => $request->comment,
+        'commission_type' => $request->commission_type,
+        'images' => $uploadedFiles, // ✅ Use deduplicated array
+    ], [
         'rating' => 'required|integer|min:1|max:5',
         'comment' => 'required|string|min:10|max:1000',
         'commission_type' => 'nullable|string|max:255',
         'images' => 'nullable|array|max:3',
-        'images.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:10240', // 10MB
+        'images.*' => 'file|mimes:jpeg,png,jpg,gif,webp,mp4,webm,mov|max:20480',
     ]);
 
     if ($validator->fails()) {
+        \Log::error('Validation failed:', [
+            'errors' => $validator->errors()->toArray(),
+            'files_count' => count($uploadedFiles)
+        ]);
+        
         return response()->json([
             'success' => false,
             'message' => $validator->errors()->first()
         ], 422);
     }
 
-    // ✅ FIX: Handle image uploads dengan DISTINCT filenames
-    $imagePaths = [];
+    // ✅ Continue dengan upload files yang sudah bersih
+    $filePaths = [];
     
-    if ($request->hasFile('images')) {
+    if (!empty($uploadedFiles)) {
         $destinationPath = public_path('storage/reviews');
         
         if (!file_exists($destinationPath)) {
             mkdir($destinationPath, 0755, true);
         }
 
-        $uploadedFiles = $request->file('images');
-        
-        // ✅ CRITICAL: Ensure it's an array
-        if (!is_array($uploadedFiles)) {
-            $uploadedFiles = [$uploadedFiles];
-        }
-
-        // ✅ DEBUG: Log files being processed
-        \Log::info('Processing files:', [
-            'count' => count($uploadedFiles),
-            'files' => array_map(fn($f) => $f->getClientOriginalName(), $uploadedFiles)
-        ]);
-
-        foreach ($uploadedFiles as $index => $image) {
-            // ✅ CRITICAL: Unique filename dengan microtime
-            $filename = time() . '_' . uniqid() . '_' . $index . '.' . $image->getClientOriginalExtension();
+        foreach ($uploadedFiles as $index => $file) {
+            $timestamp = time();
+            $random = bin2hex(random_bytes(8));
+            $extension = $file->getClientOriginalExtension();
+            $filename = "{$timestamp}_{$random}_{$index}.{$extension}";
             
-            // Move file
-            $image->move($destinationPath, $filename);
+            $file->move($destinationPath, $filename);
+            $filePaths[] = $filename;
             
-            // ✅ CRITICAL: Check if already added (prevent duplicates)
-            if (!in_array($filename, $imagePaths)) {
-                $imagePaths[] = $filename;
-                \Log::info('Image uploaded:', ['filename' => $filename]);
-            }
+            \Log::info('File uploaded:', ['filename' => $filename]);
         }
-
-        // ✅ DEBUG: Log final paths
-        \Log::info('Final image paths:', ['paths' => $imagePaths]);
     }
 
     // Create review
@@ -155,16 +160,9 @@ class ReviewController extends Controller
         'rating' => $request->rating,
         'comment' => $request->comment,
         'commission_type' => $request->commission_type,
-        'images' => !empty($imagePaths) ? $imagePaths : null, // ✅ Array or null
+        'images' => !empty($filePaths) ? $filePaths : null,
         'verified' => false,
         'is_approved' => false,
-    ]);
-
-    // ✅ DEBUG: Log created review
-    \Log::info('Review created:', [
-        'id' => $review->id,
-        'images_count' => $review->images ? count($review->images) : 0,
-        'images' => $review->images
     ]);
 
     return response()->json([
