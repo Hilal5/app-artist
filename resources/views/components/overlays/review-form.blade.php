@@ -10,7 +10,7 @@
         <div class="auth-header">
             <div class="auth-icon">
                 <svg viewBox="0 0 24 24" width="48" height="48">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor"/>
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                 </svg>
             </div>
             <h2>Write a Review</h2>
@@ -87,31 +87,27 @@
             </div>
 
             <!-- Image Upload -->
-            <div class="form-group">
-                <label>Add Photos (Optional)</label>
-                <div class="image-upload-area">
-    <label for="reviewImages" class="upload-label">
-        <svg viewBox="0 0 24 24" width="40" height="40">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="currentColor" stroke-width="2" fill="none"/>
+<div class="form-group">
+    <label for="reviewImages">
+        <svg viewBox="0 0 24 24" width="20" height="20">
+            <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2" fill="none"/>
             <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
-            <polyline points="21 15 16 10 5 21" stroke="currentColor" stroke-width="2" fill="none"/>
+            <path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="2" fill="none"/>
         </svg>
-        <span>Upload Images (Optional)</span>
-        <small>Max 3 images, up to 10MB each</small>
+        Add Images/Videos (Max 3, 20MB each)
     </label>
+    <!-- ✅ UPDATED: Accept images AND videos -->
     <input 
         type="file" 
         id="reviewImages" 
         name="images[]" 
-        accept="image/*"
+        accept="image/*,video/mp4,video/webm,video/mov"
         multiple
         style="display: none;"
     >
-    <!-- ✅ Container ID harus 'imagePreview' -->
+    <!-- ✅ Container ID yang benar: 'imagePreview' -->
     <div id="imagePreview" class="image-preview-container"></div>
-</div>  
-                <div class="image-preview-container" id="imagePreviewContainer"></div>
-            </div>
+</div>
 
             <button type="submit" class="auth-submit-btn">
                 <span>Submit Review</span>
