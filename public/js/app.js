@@ -753,7 +753,7 @@ function displayReviews(reviews) {
         reviewsList.innerHTML = `
             <div class="empty-reviews">
                 <svg viewBox="0 0 24 24" width="60" height="60">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" stroke="currentColor" stroke-width="2" fill="none"/>
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" stroke="red" stroke-width="2" fill="none"/>
                 </svg>
                 <h3>No reviews yet</h3>
                 <p>Be the first to leave a review!</p>
@@ -1100,6 +1100,7 @@ function removePreviewImage(index) {
                         <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/>
                     </svg>
                 </button>
+                
             `;
             container.appendChild(preview);
         };
@@ -1401,7 +1402,7 @@ function displayCommissions(commissions) {
         commissionsList.innerHTML = `
             <div class="empty-reviews">
                 <svg viewBox="0 0 24 24" width="60" height="60">
-                    <path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z" stroke="currentColor" stroke-width="2" fill="none"/>
+                    <path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z" stroke="white" stroke-width="2" fill="none"/>
                 </svg>
                 <h3>No commissions available</h3>
                 <p>Check back later for new services</p>
@@ -2474,9 +2475,9 @@ async function loadConversations() {
             conversationsList.innerHTML = `
                 <div class="empty-chat">
                     <svg viewBox="0 0 24 24" width="50" height="50">
-                        <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" stroke="currentColor" stroke-width="2" fill="none"/>
+                        <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" stroke="green" stroke-width="2" fill="none"/>
                     </svg>
-                    <h4>No conversations yet</h4>
+                    <h4 style="color : white ">No conversations yet</h4>
                     <p>Start chatting with users</p>
                 </div>
             `;
@@ -2645,15 +2646,15 @@ async function smartRefreshMessages() {
 function showNewMessageIndicator() {
     const chatMain = document.getElementById("chatMain");
     if (!chatMain) return;
-    
+
     // Remove existing indicator
     const existing = document.getElementById("newMessageIndicator");
     if (existing) existing.remove();
-    
+
     // Create indicator
-    const indicator = document.createElement('div');
-    indicator.id = 'newMessageIndicator';
-    indicator.className = 'new-message-indicator';
+    const indicator = document.createElement("div");
+    indicator.id = "newMessageIndicator";
+    indicator.className = "new-message-indicator";
     indicator.innerHTML = `
         <span>📨 New message</span>
         <button onclick="scrollToBottomAndHideIndicator()">
@@ -2663,11 +2664,25 @@ function showNewMessageIndicator() {
             </svg>
         </button>
     `;
-    
+
     const messagesContainer = document.getElementById("messagesContainer");
     if (messagesContainer) {
         messagesContainer.parentElement.appendChild(indicator);
     }
+
+    // ✅ AUTO HIDE SETELAH 1 DETIK
+    setTimeout(() => {
+        if (indicator && indicator.parentElement) {
+            indicator.classList.add("fade-out");
+
+            // Remove dari DOM setelah animation selesai
+            setTimeout(() => {
+                if (indicator.parentElement) {
+                    indicator.remove();
+                }
+            }, 500); // Match dengan CSS animation duration
+        }
+    }, 1000); // 1 detik
 }
 
 // ✅ Scroll to bottom and hide indicator
@@ -2830,12 +2845,6 @@ function renderMessages(messages) {
                             onclick="viewAttachment('${filePath}', 'image')"
                             loading="lazy"
                             style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;">
-                        <button class="download-attachment-btn" onclick="downloadAttachment('${filePath}', '${msg.attachment}')">
-                            <svg viewBox="0 0 24 24" width="16" height="16">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" fill="none"/>
-                            </svg>
-                            Download
-                        </button>
                     </div>
                 `;
             } else if (fileType === 'video') {
@@ -2856,12 +2865,6 @@ function renderMessages(messages) {
                                 </svg>
                             </div>
                         </div>
-                        <button class="download-attachment-btn" onclick="downloadAttachment('${filePath}', '${msg.attachment}')">
-                            <svg viewBox="0 0 24 24" width="16" height="16">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" fill="none"/>
-                            </svg>
-                            Download
-                        </button>
                     </div>
                 `;
             } else if (fileType === 'psd') {
@@ -4221,93 +4224,98 @@ window.deleteReview = deleteReview;
 // ✅ CORRECT VERSION - Use 'imagePreview' as container
 // ✅ CRITICAL: Only initialize ONCE
 function initImageUpload() {
-    const input = document.getElementById('reviewImages');
-    const preview = document.getElementById('imagePreview');
+    const input = document.getElementById("reviewImages");
+    const preview = document.getElementById("imagePreview");
 
     if (!input || !preview) {
-        console.log('❌ Image upload elements not found');
+        console.log("❌ Image upload elements not found");
         return;
     }
 
-    // ✅ CRITICAL: Remove old event listeners first (prevent duplicate)
     const newInput = input.cloneNode(true);
     input.parentNode.replaceChild(newInput, input);
-    
-    console.log('✅ Image upload initialized');
 
-    // ✅ Add event listener to NEW element
-    newInput.addEventListener('change', function(e) {
+    console.log("✅ Image upload initialized");
+
+    newInput.addEventListener("change", function (e) {
         const files = Array.from(e.target.files);
+        console.log("📦 Files selected:", files.length);
 
-        console.log('📦 Files selected:', files.length);
+        // ✅ Hitung total files (existing + new)
+        const currentCount = selectedImages.length + files.length;
 
-        // ✅ Validate: Max 3 images
-        if (files.length > 3) {
-            alert('Maximum 3 images allowed');
-            newInput.value = '';
+        if (currentCount > 3) {
+            alert(
+                `Maximum 3 files total. Current: ${selectedImages.length}, Adding: ${files.length}`
+            );
+            newInput.value = "";
             return;
         }
 
-        // ✅ Validate: Each image max 10MB
-        const maxSize = 10 * 1024 * 1024; // 10MB
+        // ✅ Validate size & type
+        const maxSize = 20 * 1024 * 1024; // 20MB
         for (let file of files) {
             if (file.size > maxSize) {
-                alert(`${file.name} is too large. Maximum size is 10MB per image.`);
-                newInput.value = '';
-                preview.innerHTML = '';
-                selectedImages = [];
+                alert(`${file.name} is too large (max 20MB)`);
+                newInput.value = "";
                 return;
             }
 
-            // ✅ Validate: Only images (tambah video jika perlu)
-            const isImage = file.type.startsWith('image/');
-            const isVideo = file.type.startsWith('video/');
-            
+            const isImage = file.type.startsWith("image/");
+            const isVideo = file.type.startsWith("video/");
+
             if (!isImage && !isVideo) {
-                alert(`${file.name} is not an image or video file`);
-                newInput.value = '';
-                preview.innerHTML = '';
-                selectedImages = [];
+                alert(`${file.name} is not a valid image or video`);
+                newInput.value = "";
                 return;
             }
         }
 
-        // ✅ Store selected files
-        selectedImages = files;
-        console.log('✅ Stored files:', selectedImages.length);
-        console.log('✅ File details:', selectedImages.map(f => f.name));
+        // ✅ APPEND (jangan ganti) - ini yang penting!
+        selectedImages = [...selectedImages, ...files];
+        console.log("✅ Total files:", selectedImages.length);
 
-        // ✅ Preview files
-        preview.innerHTML = '';
-        
-        // ✅ CRITICAL: Use Promise.all to ensure correct order
-        const previewPromises = files.map((file, index) => {
+        // ✅ JANGAN clear preview! APPEND aja
+        // preview.innerHTML = ''; // ❌ HAPUS BARIS INI!
+
+        // ✅ CRITICAL: Render hanya file baru yang ditambahkan
+        const startIndex = selectedImages.length - files.length;
+
+        const previewPromises = files.map((file, fileIndex) => {
             return new Promise((resolve) => {
                 const reader = new FileReader();
-                const isVideo = file.type.startsWith('video/');
-                
-                reader.onload = function(e) {
-                    const div = document.createElement('div');
-                    div.className = 'image-preview-item';
+                const isVideo = file.type.startsWith("video/");
+                const actualIndex = startIndex + fileIndex; // ✅ Index yang benar untuk remove
+
+                reader.onload = function (e) {
+                    const div = document.createElement("div");
+                    div.className = "image-preview-item";
+                    div.id = `preview-item-${actualIndex}`; // ✅ Unique ID
                     div.innerHTML = `
-                        ${isVideo ? `
+                        ${
+                            isVideo
+                                ? `
                             <video src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover;">
                                 Your browser does not support video preview.
                             </video>
                             <div class="video-badge" style="position: absolute; top: 5px; left: 5px; background: rgba(0,0,0,0.8); color: white; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; z-index: 2;">
                                 VIDEO
                             </div>
-                        ` : `
-                            <img src="${e.target.result}" alt="Preview ${index + 1}" style="width: 100%; height: 100%; object-fit: cover;">
-                        `}
-                        <button type="button" class="image-preview-remove" onclick="removeImage(${index})">
+                        `
+                                : `
+                            <img src="${e.target.result}" alt="Preview ${
+                                      actualIndex + 1
+                                  }" style="width: 100%; height: 100%; object-fit: cover;">
+                        `
+                        }
+                        <button type="button" class="image-preview-remove" onclick="removeImage(${actualIndex})">
                             <svg viewBox="0 0 24 24" width="14" height="14">
                                 <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/>
                                 <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/>
                             </svg>
                         </button>
                     `;
-                    preview.appendChild(div);
+                    preview.appendChild(div); // ✅ APPEND, bukan replace
                     resolve();
                 };
                 reader.readAsDataURL(file);
@@ -4315,14 +4323,13 @@ function initImageUpload() {
         });
 
         Promise.all(previewPromises).then(() => {
-            console.log('✅ All previews rendered');
+            console.log("✅ Preview rendered. Total:", selectedImages.length);
+            newInput.value = ""; // ✅ Reset input agar bisa upload file sama 2x
         });
     });
 }
 
 
-
-// Remove image from preview
 function removeImage(index) {
     console.log("🗑️ Removing file at index:", index);
 
@@ -4338,47 +4345,58 @@ function removeImage(index) {
         return;
     }
 
-    // Re-render preview
+    // ✅ PERBAIKAN: Clear preview dan re-render dengan index yang benar
     if (preview) {
         preview.innerHTML = "";
-        selectedImages.forEach((file, i) => {
-            const reader = new FileReader();
-            const isVideo = file.type.startsWith("video/");
 
-            reader.onload = function (e) {
-                const div = document.createElement("div");
-                div.className = "image-preview-item";
-                div.innerHTML = `
-                    ${
-                        isVideo
-                            ? `
-                        <video src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover;">
-                            Your browser does not support video preview.
-                        </video>
-                        <div class="video-badge" style="position: absolute; top: 5px; left: 5px; background: rgba(0,0,0,0.8); color: white; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; z-index: 2;">
-                            VIDEO
-                        </div>
-                    `
-                            : `
-                        <img src="${e.target.result}" alt="Preview ${
-                                  i + 1
-                              }" style="width: 100%; height: 100%; object-fit: cover;">
-                    `
-                    }
-                    <button type="button" class="image-preview-remove" onclick="removeImage(${i})">
-                        <svg viewBox="0 0 24 24" width="14" height="14">
-                            <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/>
-                            <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/>
-                        </svg>
-                    </button>
-                `;
-                preview.appendChild(div);
-            };
-            reader.readAsDataURL(file);
+        // ✅ Gunakan Promise.all biar urutan preview benar
+        const previewPromises = selectedImages.map((file, i) => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                const isVideo = file.type.startsWith("video/");
+
+                reader.onload = function (e) {
+                    const div = document.createElement("div");
+                    div.className = "image-preview-item";
+                    div.id = `preview-item-${i}`; // ✅ Unique ID
+                    div.innerHTML = `
+                        ${
+                            isVideo
+                                ? `
+                            <video src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover;">
+                                Your browser does not support video preview.
+                            </video>
+                            <div class="video-badge" style="position: absolute; top: 5px; left: 5px; background: rgba(0,0,0,0.8); color: white; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; z-index: 2;">
+                                VIDEO
+                            </div>
+                        `
+                                : `
+                            <img src="${e.target.result}" alt="Preview ${
+                                      i + 1
+                                  }" style="width: 100%; height: 100%; object-fit: cover;">
+                        `
+                        }
+                        <button type="button" class="image-preview-remove" onclick="removeImage(${i})">
+                            <svg viewBox="0 0 24 24" width="14" height="14">
+                                <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/>
+                                <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        </button>
+                    `;
+                    preview.appendChild(div);
+                    resolve();
+                };
+                reader.readAsDataURL(file);
+            });
+        });
+
+        Promise.all(previewPromises).then(() => {
+            console.log(
+                "✅ Preview updated, remaining files:",
+                selectedImages.length
+            );
         });
     }
-
-    console.log("✅ Preview updated, remaining files:", selectedImages.length);
 }
 
 // Make removeImage global
