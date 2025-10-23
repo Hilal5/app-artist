@@ -5,7 +5,10 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    /* font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; */
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 400; /* Regular */
+    line-height: 1.6;
     min-height: 100vh;
     overflow-x: hidden;
     position: relative;
@@ -177,13 +180,13 @@ body.dark-mode {
     pointer-events: none; 
 }
 
-/* .star {
+.star {
     position: absolute;
     background: white;
     border-radius: 50%;
     animation: twinkle 3s infinite;
     pointer-events: none; 
-} */
+}
 
 @keyframes twinkle {
     0%, 100% { opacity: 0.3; transform: scale(1); }
@@ -2432,14 +2435,6 @@ h1 .name {
     flex-wrap: wrap;
 }
 
-.image-preview-item {
-    position: relative;
-    width: 100px;
-    height: 100px;
-    border-radius: 10px;
-    overflow: hidden;
-    border: 2px solid rgba(255, 255, 255, 0.1);
-}
 
 .image-preview-item img {
     width: 100%;
@@ -2447,32 +2442,6 @@ h1 .name {
     object-fit: cover;
 }
 
-.image-preview-remove {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    background: rgba(244, 67, 54, 0.9);
-    border: none;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.image-preview-remove:hover {
-    background: #f44336;
-    transform: scale(1.1);
-}
-
-.image-preview-remove svg {
-    stroke: white;
-    width: 14px;
-    height: 14px;
-}
 
 .loading-spinner {
     text-align: center;
@@ -3369,7 +3338,7 @@ h1 .name {
     width: 150px;
     height: 150px;
     border-radius: 10px;
-    overflow: hidden;
+    overflow: visible;
     border: 2px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -3495,7 +3464,7 @@ h1 .name {
     width: 100%;
     padding-bottom: 100%;
     border-radius: 10px;
-    overflow: hidden;
+    overflow: visible;
     border: 2px solid rgba(255, 255, 255, 0.15);
     background: rgba(255, 255, 255, 0.05);
     transition: all 0.3s ease;
@@ -3515,32 +3484,7 @@ h1 .name {
     object-fit: cover;
 }
 
-.image-preview-remove {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    background: rgba(244, 67, 54, 0.95);
-    border: none;
-    border-radius: 50%;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    z-index: 10;
-    box-shadow: 0 2px 10px rgba(244, 67, 54, 0.4);
-}
 
-.image-preview-remove:hover {
-    background: #f44336;
-    transform: scale(1.15) rotate(90deg);
-}
-
-.image-preview-remove svg {
-    stroke: white;
-}
 
 .image-number {
     position: absolute;
@@ -6447,7 +6391,7 @@ video::before {
     padding-bottom: 100%; /* Square aspect ratio */
     background: rgba(0, 0, 0, 0.2);
     border-radius: 8px;
-    overflow: hidden;
+    overflow: visible;
     border: 2px solid rgba(255, 255, 255, 0.1);
     transition: all 0.3s ease;
 }
@@ -6504,12 +6448,13 @@ video::before {
     justify-content: center;
     cursor: pointer;
     transition: all 0.2s;
-    z-index: 10;
+    z-index: 11;
     opacity: 0;
 }
 
 .image-preview-item:hover .image-preview-remove {
     opacity: 1;
+    
 }
 
 .image-preview-remove:hover {
